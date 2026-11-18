@@ -1,0 +1,87 @@
+# Settings for running the stack on Kubernetes. Each engine is a set of
+# identical replicas with one GPU each, and the gateway sends every request to
+# the least busy replica. A 7B model fits on one GPU, so capacity comes from
+# more replicas, not from splitting the model across GPUs.
+
+# Secret the UI's server side sends to the gateway. Either set apiKey, or name
+# an existing Secret that holds it under the key `api-key`.
+apiKey: ""
+apiKeySecret: ""
+
+# Name clients ask for. `qwen7b` goes to defaultEngine; `vllm/qwen7b` and
+# `trtllm/qwen7b` pick an engine explicitly.
+modelName: qwen7b
+defaultEngine: trtllm
+
+engines:
+  trtllm:
+    enabled: true
+    replicas: 2
+    image: nvcr.io/nvidia/tensorrt-llm/release:1.4.0rc4
+    # A Hugging Face id, or a path on the models volume (see `models` below).
+    model: /models/qwen2.5-7b-fp8
+    label: TRT-LLM FP8
+    # Speculative decoding, off when null. Example:
+    #   {decoding_type: Draft_Target, max_draft_len: 4, speculative_model: Qwen/Qwen2.5-0.5B-Instruct}
+    speculativeConfig: null
+    gpus: 1
+  vllm:
+    enabled: false
+    replicas: 1
+    image: vllm/vllm-openai:v0.34.0
+    model: Qwen/Qwen2.5-7B-Instruct-AWQ
+    label: vLLM AWQ
+    extraArgs: []
+    gpus: 1
+  # Both engines also accept `command`, which replaces the launch command. It
+  # exists to smoke-test the chart on a cluster without GPUs (with `gpus: 0`).
+
+# Where engine pods find checkpoints and keep Hugging Face downloads. Name a
+# ReadWriteMany claim so replicas share one copy and start without downloading.
+# Without it each pod downloads into scratch space, which only works for
+# Hugging Face ids and makes every start slow.
+models:
+  existingClaim: ""
+
+# Name of a Secret with the key `token`, for gated Hugging Face models.
+hfTokenSecret: ""
+
+# Scheduling of engine pods onto GPU nodes.
+gpu:
+  nodeSelector: {}
+  # GPU nodes are usually tainted so that only GPU workloads land on them.
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+
+images:
+  # Built from gateway/ and ui/ and pushed to a registry the cluster can pull from.
+  gateway: ""
+  ui: ""
+
+gateway:
+  replicas: 1
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  # For ingress-nginx. Buffering would hold tokens back and hide the latency
+  # the UI measures; generation can also run longer than the default timeout.
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+
+# Prometheus the gateway reads GPU utilisation from, for the UI, e.g.
+# http://kube-prometheus-stack-prometheus.monitoring:9090. GPU metrics come from
+# the cluster's dcgm-exporter (part of the NVIDIA GPU Operator).
+prometheusUrl: ""
+
+# Scrape engine metrics with the Prometheus Operator.
+podMonitor:
+  enabled: false
+
+# Contents of results/summary.json for the Benchmarks page:
+#   --set-file results=results/summary.json
+results: ""

@@ -1,0 +1,109 @@
+{{- $component := dict "root" . "component" "gateway" }}
+{{- /* The engines the gateway routes to: every enabled one, by its Service name. */ -}}
+{{- $urls := dict }}
+{{- $labels := dict }}
+{{- range $name, $engine := .Values.engines }}
+{{- if $engine.enabled }}
+{{- $_ := set $urls $name (printf "http://%s-%s:8000" $.Release.Name $name) }}
+{{- $_ := set $labels $name $engine.label }}
+{{- end }}
+{{- end }}
+{{- if not .Values.apiKeySecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "qwen7b.apiKeySecret" . }}
+  labels:
+    {{- include "qwen7b.labels" $component | nindent 4 }}
+stringData:
+  api-key: {{ required "Set apiKey, or apiKeySecret to the name of an existing Secret." .Values.apiKey | quote }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-gateway
+  labels:
+    {{- include "qwen7b.labels" $component | nindent 4 }}
+spec:
+  replicas: {{ .Values.gateway.replicas }}
+  selector:
+    matchLabels:
+      {{- include "qwen7b.selector" $component | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "qwen7b.labels" $component | nindent 8 }}
+    spec:
+      containers:
+        - name: gateway
+          image: {{ required "Set images.gateway to the image built from gateway/." .Values.images.gateway }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "qwen7b.apiKeySecret" . }}
+                  key: api-key
+            - name: ENGINES
+              value: {{ toJson $urls | quote }}
+            - name: ENGINE_LABELS
+              value: {{ toJson $labels | quote }}
+            - name: DEFAULT_ENGINE
+              value: {{ .Values.defaultEngine }}
+            - name: MODEL_NAME
+              value: {{ .Values.modelName }}
+            - name: PROMETHEUS_URL
+              value: {{ .Values.prometheusUrl | quote }}
+            - name: RESULTS_FILE
+              value: /results/summary.json
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+          {{- if .Values.results }}
+          volumeMounts:
+            - name: results
+              mountPath: /results
+          {{- end }}
+      {{- if .Values.results }}
+      volumes:
+        - name: results
+          configMap:
+            name: {{ .Release.Name }}-results
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-gateway
+  labels:
+    {{- include "qwen7b.labels" $component | nindent 4 }}
+spec:
+  selector:
+    {{- include "qwen7b.selector" $component | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+{{- if .Values.results }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-results
+  labels:
+    {{- include "qwen7b.labels" $component | nindent 4 }}
+data:
+  summary.json: {{ .Values.results | quote }}
+{{- end }}

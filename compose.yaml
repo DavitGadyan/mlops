@@ -1,0 +1,105 @@
+# The whole stack on one GPU host. Start it with `make up ENGINE=<target>`:
+# the target's file in engines/ picks the engine, the checkpoint and its flags.
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+x-engine: &engine
+  <<: *gpu
+  ipc: host # PyTorch shares tensors between processes through /dev/shm
+  environment:
+    HF_TOKEN: ${HF_TOKEN:-}
+  volumes:
+    - ${HF_CACHE:-~/.cache/huggingface}:/root/.cache/huggingface
+    - ${MODELS_DIR:-./models}:/models
+    - ./engines/trtllm:/config:ro
+  healthcheck:
+    test: ["CMD", "python3", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+    interval: 10s
+    timeout: 5s
+    retries: 90 # loading a checkpoint takes minutes
+
+services:
+  trtllm:
+    <<: *engine
+    profiles: [trtllm]
+    image: ${TRTLLM_IMAGE}
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    command:
+      - trtllm-serve
+      - ${TRTLLM_MODEL:-}
+      - --host=0.0.0.0
+      - --port=8000
+      - --served_model_name=qwen7b
+      - --config=/config/base.yaml
+      # Qwen2.5 emits Hermes-style <tool_call>{json}</tool_call>, which this parser reads.
+      - --tool_parser=qwen3
+      # One HTTP process. The default of 8 is for many-core servers and costs host RAM each.
+      - --num_serve_frontends=1
+      - --no-telemetry
+      # Speculative decoding, off unless the target sets SPEC_CONFIG.
+      - --set
+      - speculative_config=${SPEC_CONFIG:-null}
+    ports: ["8001:8000"]
+
+  vllm:
+    <<: *engine
+    profiles: [vllm]
+    image: ${VLLM_IMAGE}
+    command: >
+      --model ${VLLM_MODEL:-}
+      --served-model-name qwen7b
+      --enable-auto-tool-choice --tool-call-parser hermes
+      ${VLLM_ARGS:-}
+    ports: ["8002:8000"]
+
+  gateway:
+    build: ./gateway
+    environment:
+      API_KEY: ${API_KEY}
+      ENGINES: '{"trtllm": "http://trtllm:8000", "vllm": "http://vllm:8000"}'
+      # Unset, plain "qwen7b" goes to the engine that `make up` started.
+      DEFAULT_ENGINE: ${DEFAULT_ENGINE:-${FIRST_ENGINE:-trtllm}}
+      ENGINE_LABELS: '{"trtllm": "${TRTLLM_LABEL:-TensorRT-LLM}", "vllm": "${VLLM_LABEL:-vLLM}"}'
+      RESULTS_FILE: /results/summary.json
+    volumes:
+      - ./results:/results:ro
+    ports: ["${GATEWAY_PORT:-8080}:8080"]
+
+  ui:
+    build: ./ui
+    environment:
+      GATEWAY_URL: http://gateway:8080
+      GATEWAY_API_KEY: ${API_KEY}
+    ports: ["${UI_PORT:-3000}:3000"]
+
+  dcgm-exporter:
+    <<: *gpu
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:4.9.0
+    cap_add: [SYS_ADMIN]
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:13.3.1
+    environment:
+      # Read-only access without a login: this is a demo on a private network.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/inference.json
+    volumes:
+      - ./observability/grafana/datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./observability/grafana/inference.json:/var/lib/grafana/dashboards/inference.json:ro
+    ports: ["${GRAFANA_PORT:-3001}:3000"]

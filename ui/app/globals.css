@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+/* One token set for chrome and charts. Colour is reserved for data and state;
+   controls stay in ink, so a coloured mark always means something. */
+:root {
+  color-scheme: light dark;
+
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --axis: #898781; /* chart ticks only: too light for running text */
+  --line: #e1e0d9;
+  --line-strong: #c3c2b7;
+  --focus: #2a78d6;
+  --good: #0ca30c;
+  --danger: #b3261e;
+
+  /* Categorical series, in a fixed order that was checked for colour-blind separation. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  /* One-hue ramp for ordered series (draft length): more is more contrast. */
+  --ramp-1: #86b6ef;
+  --ramp-2: #2a78d6;
+  --ramp-3: #104281;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --line: #2c2c2a;
+    --line-strong: #383835;
+    --focus: #3987e5;
+    --danger: #f2938c;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --ramp-1: #184f95;
+    --ramp-2: #3987e5;
+    --ramp-3: #9ec5f4;
+  }
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-axis: var(--axis);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-focus: var(--focus);
+  --color-good: var(--good);
+  --color-danger: var(--danger);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@layer base {
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--focus) 28%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  input,
+  textarea {
+    caret-color: var(--focus);
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex h-9 items-center justify-center rounded-md border border-line-strong bg-surface px-3 font-medium text-ink transition-colors duration-150 hover:border-ink-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line-strong;
+  }
+
+  .btn-primary {
+    @apply border-ink bg-ink text-page hover:opacity-85 disabled:hover:opacity-50;
+  }
+
+  .field {
+    @apply h-9 w-full rounded-md border border-line-strong bg-surface px-2.5 text-ink tabular-nums placeholder:text-ink-2 hover:border-ink-2;
+  }
+
+  /* Numbers that are compared down a column or across a row. */
+  .data-table {
+    @apply w-full border-collapse text-left tabular-nums;
+  }
+
+  .data-table th {
+    @apply border-b border-line-strong py-2 pr-6 font-medium text-ink-2;
+  }
+
+  .data-table td {
+    @apply border-b border-line py-2 pr-6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

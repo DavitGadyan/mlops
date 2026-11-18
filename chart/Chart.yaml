@@ -1,0 +1,6 @@
+apiVersion: v2
+name: qwen7b
+description: Qwen2.5-7B served by TensorRT-LLM and vLLM replicas behind one OpenAI-compatible gateway
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

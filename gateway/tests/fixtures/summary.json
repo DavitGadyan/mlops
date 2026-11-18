@@ -1,0 +1,390 @@
+{
+  "synthetic": true,
+  "generated_at": "2026-11-18T00:00:00Z",
+  "hardware": "No GPU (fixture)",
+  "workload": "synthetic prompts, 512 input / 256 output tokens",
+  "slo": {
+    "ttft_ms": 500,
+    "itl_ms": 50
+  },
+  "reference": "vllm-bf16",
+  "targets": [
+    {
+      "id": "vllm-awq",
+      "label": "vLLM AWQ",
+      "sweep": [
+        {
+          "concurrency": 1,
+          "output_tps": 59.0,
+          "goodput_rps": 0.231,
+          "ttft_ms": {
+            "p50": 42.3,
+            "p99": 70.6
+          },
+          "itl_ms": {
+            "p50": 12.96,
+            "p99": 15.25
+          }
+        },
+        {
+          "concurrency": 2,
+          "output_tps": 112.7,
+          "goodput_rps": 0.44,
+          "ttft_ms": {
+            "p50": 43.1,
+            "p99": 71.8
+          },
+          "itl_ms": {
+            "p50": 13.18,
+            "p99": 15.5
+          }
+        },
+        {
+          "concurrency": 4,
+          "output_tps": 206.7,
+          "goodput_rps": 0.807,
+          "ttft_ms": {
+            "p50": 45.2,
+            "p99": 75.3
+          },
+          "itl_ms": {
+            "p50": 13.6,
+            "p99": 16.0
+          }
+        },
+        {
+          "concurrency": 8,
+          "output_tps": 354.3,
+          "goodput_rps": 1.384,
+          "ttft_ms": {
+            "p50": 51.7,
+            "p99": 86.2
+          },
+          "itl_ms": {
+            "p50": 14.45,
+            "p99": 17.0
+          }
+        },
+        {
+          "concurrency": 16,
+          "output_tps": 551.1,
+          "goodput_rps": 2.153,
+          "ttft_ms": {
+            "p50": 71.4,
+            "p99": 119.0
+          },
+          "itl_ms": {
+            "p50": 16.15,
+            "p99": 19.0
+          }
+        },
+        {
+          "concurrency": 32,
+          "output_tps": 763.1,
+          "goodput_rps": 2.981,
+          "ttft_ms": {
+            "p50": 131.1,
+            "p99": 218.5
+          },
+          "itl_ms": {
+            "p50": 19.55,
+            "p99": 23.0
+          }
+        }
+      ],
+      "accuracy": {
+        "task": "gsm8k",
+        "n": 500,
+        "score": 0.812,
+        "stderr": 0.0175
+      },
+      "weights_gib": 5.2,
+      "open_loop": {
+        "rate_rps": 2.09,
+        "within_slo": 0.97,
+        "ttft_ms": {
+          "p50": 51.7,
+          "p99": 86.2
+        },
+        "itl_ms": {
+          "p50": 14.45,
+          "p99": 17.0
+        }
+      }
+    },
+    {
+      "id": "trtllm-awq",
+      "label": "TRT-LLM AWQ",
+      "sweep": [
+        {
+          "concurrency": 1,
+          "output_tps": 67.2,
+          "goodput_rps": 0.263,
+          "ttft_ms": {
+            "p50": 33.2,
+            "p99": 55.3
+          },
+          "itl_ms": {
+            "p50": 11.63,
+            "p99": 13.69
+          }
+        },
+        {
+          "concurrency": 2,
+          "output_tps": 129.2,
+          "goodput_rps": 0.505,
+          "ttft_ms": {
+            "p50": 33.6,
+            "p99": 56.0
+          },
+          "itl_ms": {
+            "p50": 11.79,
+            "p99": 13.87
+          }
+        },
+        {
+          "concurrency": 4,
+          "output_tps": 240.0,
+          "goodput_rps": 0.938,
+          "ttft_ms": {
+            "p50": 34.9,
+            "p99": 58.1
+          },
+          "itl_ms": {
+            "p50": 12.11,
+            "p99": 14.25
+          }
+        },
+        {
+          "concurrency": 8,
+          "output_tps": 420.0,
+          "goodput_rps": 1.641,
+          "ttft_ms": {
+            "p50": 38.7,
+            "p99": 64.5
+          },
+          "itl_ms": {
+            "p50": 12.75,
+            "p99": 15.0
+          }
+        },
+        {
+          "concurrency": 16,
+          "output_tps": 672.0,
+          "goodput_rps": 2.625,
+          "ttft_ms": {
+            "p50": 50.2,
+            "p99": 83.7
+          },
+          "itl_ms": {
+            "p50": 14.03,
+            "p99": 16.5
+          }
+        },
+        {
+          "concurrency": 32,
+          "output_tps": 960.0,
+          "goodput_rps": 3.75,
+          "ttft_ms": {
+            "p50": 85.3,
+            "p99": 142.1
+          },
+          "itl_ms": {
+            "p50": 16.57,
+            "p99": 19.5
+          }
+        }
+      ],
+      "accuracy": {
+        "task": "gsm8k",
+        "n": 500,
+        "score": 0.806,
+        "stderr": 0.0177
+      },
+      "weights_gib": 5.3,
+      "open_loop": {
+        "rate_rps": 2.62,
+        "within_slo": 0.97,
+        "ttft_ms": {
+          "p50": 38.7,
+          "p99": 64.5
+        },
+        "itl_ms": {
+          "p50": 12.75,
+          "p99": 15.0
+        }
+      }
+    },
+    {
+      "id": "trtllm-fp8",
+      "label": "TRT-LLM FP8",
+      "sweep": [
+        {
+          "concurrency": 1,
+          "output_tps": 54.6,
+          "goodput_rps": 0.213,
+          "ttft_ms": {
+            "p50": 36.4,
+            "p99": 60.7
+          },
+          "itl_ms": {
+            "p50": 14.32,
+            "p99": 16.84
+          }
+        },
+        {
+          "concurrency": 2,
+          "output_tps": 103.1,
+          "goodput_rps": 0.403,
+          "ttft_ms": {
+            "p50": 37.3,
+            "p99": 62.2
+          },
+          "itl_ms": {
+            "p50": 14.61,
+            "p99": 17.19
+          }
+        },
+        {
+          "concurrency": 4,
+          "output_tps": 185.6,
+          "goodput_rps": 0.725,
+          "ttft_ms": {
+            "p50": 39.9,
+            "p99": 66.5
+          },
+          "itl_ms": {
+            "p50": 15.19,
+            "p99": 17.88
+          }
+        },
+        {
+          "concurrency": 8,
+          "output_tps": 309.3,
+          "goodput_rps": 1.208,
+          "ttft_ms": {
+            "p50": 47.9,
+            "p99": 79.8
+          },
+          "itl_ms": {
+            "p50": 16.36,
+            "p99": 19.25
+          }
+        },
+        {
+          "concurrency": 16,
+          "output_tps": 464.0,
+          "goodput_rps": 1.812,
+          "ttft_ms": {
+            "p50": 72.0,
+            "p99": 120.0
+          },
+          "itl_ms": {
+            "p50": 18.7,
+            "p99": 22.0
+          }
+        },
+        {
+          "concurrency": 32,
+          "output_tps": 618.7,
+          "goodput_rps": 2.417,
+          "ttft_ms": {
+            "p50": 145.1,
+            "p99": 241.9
+          },
+          "itl_ms": {
+            "p50": 23.37,
+            "p99": 27.5
+          }
+        }
+      ],
+      "accuracy": {
+        "task": "gsm8k",
+        "n": 500,
+        "score": 0.838,
+        "stderr": 0.0165
+      },
+      "weights_gib": 8.1,
+      "open_loop": {
+        "rate_rps": 1.69,
+        "within_slo": 0.97,
+        "ttft_ms": {
+          "p50": 47.9,
+          "p99": 79.8
+        },
+        "itl_ms": {
+          "p50": 16.36,
+          "p99": 19.25
+        }
+      }
+    },
+    {
+      "id": "vllm-bf16",
+      "label": "BF16 reference",
+      "sweep": [],
+      "accuracy": {
+        "task": "gsm8k",
+        "n": 500,
+        "score": 0.842,
+        "stderr": 0.0163
+      },
+      "weights_gib": 14.2
+    }
+  ],
+  "spec_decode": [
+    {
+      "draft_len": 2,
+      "concurrency": 1,
+      "speedup": 1.21,
+      "acceptance_rate": 0.66
+    },
+    {
+      "draft_len": 2,
+      "concurrency": 4,
+      "speedup": 1.18,
+      "acceptance_rate": 0.66
+    },
+    {
+      "draft_len": 2,
+      "concurrency": 16,
+      "speedup": 1.06,
+      "acceptance_rate": 0.66
+    },
+    {
+      "draft_len": 4,
+      "concurrency": 1,
+      "speedup": 1.33,
+      "acceptance_rate": 0.54
+    },
+    {
+      "draft_len": 4,
+      "concurrency": 4,
+      "speedup": 1.29,
+      "acceptance_rate": 0.54
+    },
+    {
+      "draft_len": 4,
+      "concurrency": 16,
+      "speedup": 1.1,
+      "acceptance_rate": 0.54
+    },
+    {
+      "draft_len": 6,
+      "concurrency": 1,
+      "speedup": 1.36,
+      "acceptance_rate": 0.42
+    },
+    {
+      "draft_len": 6,
+      "concurrency": 4,
+      "speedup": 1.31,
+      "acceptance_rate": 0.42
+    },
+    {
+      "draft_len": 6,
+      "concurrency": 16,
+      "speedup": 1.1,
+      "acceptance_rate": 0.42
+    }
+  ]
+}

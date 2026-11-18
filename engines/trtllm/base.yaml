@@ -1,0 +1,31 @@
+# Runtime settings for trtllm-serve (TensorRT-LLM 1.4, PyTorch backend).
+# Keys are fields of tensorrt_llm.llmapi.TorchLlmArgs. The batching limits are
+# starting values to be tuned from the concurrency sweep, not measured optima.
+
+kv_cache_config:
+  # Share of the VRAM left after loading weights that the paged KV cache may
+  # claim. The KV cache is what bounds concurrency: this model needs about
+  # 56 KiB per token in BF16 (28 layers x 4 KV heads x 128 dims x K and V x
+  # 2 bytes), so 1 GiB holds about 18k tokens across all in-flight requests.
+  # 0.85 leaves room for activations on a laptop GPU that may also drive a display.
+  free_gpu_memory_fraction: 0.85
+  # Prefix caching. Requests that share a prompt prefix, such as a system
+  # prompt, reuse its KV blocks and skip that part of prefill, which lowers TTFT.
+  enable_block_reuse: true
+
+# Prefill of a long prompt is compute-bound and can take hundreds of
+# milliseconds. Chunking interleaves it with the decode steps of running
+# requests, so one large prompt does not stall everyone else's tokens.
+enable_chunked_prefill: true
+
+# Bounds for one scheduler step: how many requests are batched together and how
+# many tokens are processed across them. Continuous batching fills each step up
+# to these, admitting new requests as others finish.
+max_batch_size: 64
+max_num_tokens: 8192
+
+# Serve Prometheus metrics at /prometheus/metrics. Plain /metrics is a JSON
+# queue that is emptied by whoever reads it, so it cannot be scraped.
+return_perf_metrics: true
+enable_iter_perf_stats: true
+print_iter_log: false

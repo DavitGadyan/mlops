@@ -1,0 +1,9 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+.next/
+# Model checkpoints and raw benchmark artifacts stay on the GPU host.
+models/
+results/raw/

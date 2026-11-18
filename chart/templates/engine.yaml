@@ -1,0 +1,186 @@
+{{- /* One Deployment and one headless Service per enabled engine. */ -}}
+{{- range $name, $engine := .Values.engines }}
+{{- if $engine.enabled }}
+{{- $fullname := printf "%s-%s" $.Release.Name $name }}
+{{- $component := dict "root" $ "component" $name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "qwen7b.labels" $component | nindent 4 }}
+spec:
+  replicas: {{ $engine.replicas }}
+  # A surge pod would need a GPU that a busy cluster does not have spare, and
+  # the rollout would hang. Free a GPU first instead.
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "qwen7b.selector" $component | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "qwen7b.labels" $component | nindent 8 }}
+      {{- if eq $name "trtllm" }}
+      annotations:
+        # Restart the pods when the engine's runtime settings change.
+        checksum/config: {{ $.Files.Get "files/trtllm.yaml" | sha256sum }}
+      {{- end }}
+    spec:
+      # Time for requests in flight to finish streaming before the pod is killed.
+      terminationGracePeriodSeconds: 120
+      {{- with $.Values.gpu.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.gpu.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: engine
+          image: {{ $engine.image }}
+          {{- if $engine.command }}
+          command:
+            {{- toYaml $engine.command | nindent 12 }}
+          {{- else if eq $name "trtllm" }}
+          # The same flags as the trtllm service in compose.yaml.
+          command: [trtllm-serve]
+          args:
+            - {{ $engine.model | quote }}
+            - --host=0.0.0.0
+            - --port=8000
+            - --served_model_name={{ $.Values.modelName }}
+            - --config=/config/trtllm.yaml
+            - --tool_parser=qwen3
+            - --num_serve_frontends=1
+            - --no-telemetry
+            - --set
+            - {{ printf "speculative_config=%s" (toJson $engine.speculativeConfig) | quote }}
+          {{- else }}
+          args:
+            - --model={{ $engine.model }}
+            - --served-model-name={{ $.Values.modelName }}
+            - --enable-auto-tool-choice
+            - --tool-call-parser=hermes
+            {{- range $engine.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: HF_HOME
+              value: /models/huggingface
+            {{- if $.Values.hfTokenSecret }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.hfTokenSecret }}
+                  key: token
+            {{- end }}
+          {{- if $engine.gpus }}
+          resources:
+            limits:
+              nvidia.com/gpu: {{ $engine.gpus }}
+          {{- end }}
+          # Loading a checkpoint takes minutes. Until /health answers, the pod
+          # has no DNS record, so the gateway does not send it requests.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          # No liveness probe on purpose: under heavy load /health answers
+          # slowly, and restarting a busy engine turns a slowdown into an outage.
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: shm
+              mountPath: /dev/shm
+            {{- if eq $name "trtllm" }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+      volumes:
+        - name: models
+          {{- if $.Values.models.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ $.Values.models.existingClaim }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        # PyTorch passes tensors between processes through shared memory, and
+        # the container default of 64 MiB is too small for it.
+        - name: shm
+          emptyDir:
+            medium: Memory
+        {{- if eq $name "trtllm" }}
+        - name: config
+          configMap:
+            name: {{ $fullname }}-config
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "qwen7b.labels" $component | nindent 4 }}
+spec:
+  # Headless: DNS returns one address per ready pod and the gateway picks the
+  # least busy. A ClusterIP would balance per TCP connection, which says
+  # nothing about load when one request can stream for minutes.
+  clusterIP: None
+  selector:
+    {{- include "qwen7b.selector" $component | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+{{- if eq $name "trtllm" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-config
+  labels:
+    {{- include "qwen7b.labels" $component | nindent 4 }}
+data:
+  # The same file Docker Compose mounts: engines/trtllm/base.yaml.
+  trtllm.yaml: |
+    {{- $.Files.Get "files/trtllm.yaml" | nindent 4 }}
+{{- end }}
+{{- if $.Values.podMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "qwen7b.labels" $component | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "qwen7b.selector" $component | nindent 6 }}
+  podMetricsEndpoints:
+    - port: http
+      # On trtllm-serve plain /metrics is a JSON queue, not Prometheus text.
+      path: {{ eq $name "trtllm" | ternary "/prometheus/metrics" "/metrics" }}
+      interval: 5s
+{{- end }}
+{{- end }}
+{{- end }}
